@@ -35,17 +35,31 @@ class ThumbsUpClient:
             json=data
         )
         return response.json()
-        
+
+    def get_status_message(self, state):
+        if state.get('winner'):
+            return f"Game over! Winner is {state['winner']}"
+        elif state['is_my_turn']:
+            return "🎯 It's your turn to bet!"
+        elif state['current_bet'] and self.player_id in state['waiting_for_players']:
+            return f"🖐 Player {state['current_turn']} bet {state['current_bet']['bet']}"
+        else:
+            return "⏳ Waiting for others..."
+
+    def get_game_over_message(self, winner):
+        is_winner = (winner == self.player_id)
+        return "🎉 You Win!" if is_winner else "😢 You Lose!"
+
     def play_turn(self):
         while True:
             state = self.get_game_state()
-            
+            print(self.get_status_message(state))  # Print status message
+
             if state.get('winner'):
-                print(f"Game over! Winner is {state['winner']}")
+                print(self.get_game_over_message(state['winner']))  # Print game over message
                 return
                 
             if state['is_my_turn']:
-                print("\nIt's your turn!")
                 print(f"Current game state: {state['players']}")
                 bet = int(input("Enter your bet for total thumbs: "))
                 own_thumbs = int(input("Enter how many thumbs you're raising (0-2): "))
