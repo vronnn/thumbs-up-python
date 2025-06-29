@@ -5,7 +5,6 @@ import threading
 import requests
 import time
 import os
-from client import ThumbsUpClient  # Import ThumbsUpClient dari client.py
 
 SERVER_URL = 'http://localhost:55556'
 
@@ -29,7 +28,7 @@ class ThumbsUpClientGUI:
         self.frame.place(relx=0.5, rely=0.5, anchor="center", width=340, height=460)
 
         self.player_id = ""
-        self.client = None  # Instance of ThumbsUpClient
+        self.headers = {}
         self.current_phase = None
 
         self.setup_login_screen()
@@ -56,10 +55,16 @@ class ThumbsUpClientGUI:
 
     def join_game(self):
         self.player_id = self.entry_player_id.get()
-        self.client = ThumbsUpClient(self.player_id)  # Create an instance of ThumbsUpClient
-        self.client.join_game()  # Call join_game method
-        self.setup_game_screen()
-        threading.Thread(target=self.update_game_state, daemon=True).start()
+        self.headers = {'Player-ID': self.player_id}
+        try:
+            response = requests.get(f'{SERVER_URL}/join', headers=self.headers).json()
+            if response['status'] == 'OK':
+                self.setup_game_screen()
+                threading.Thread(target=self.update_game_state, daemon=True).start()
+            else:
+                messagebox.showerror("Error", response['message'])
+        except Exception:
+            messagebox.showerror("Connection Error", "Failed to connect to server.")
 
     def setup_game_screen(self):
         self.clear_frame()
@@ -93,9 +98,12 @@ class ThumbsUpClientGUI:
 
     def update_game_state(self):
         while True:
-            state = self.client.get_game_state()  # Use the client instance to get game state
-            self.render_game_state(state)
-            time.sleep(1)
+            try:
+                state = requests.get(f'{SERVER_URL}/game_state', headers=self.headers).json()
+                self.render_game_state(state)
+                time.sleep(1)
+            except:
+                break
 
     def render_game_state(self, state):
         if state.get('winner'):
@@ -150,7 +158,8 @@ class ThumbsUpClientGUI:
         try:
             bet = int(bet_text)
             own_thumbs = int(thumb_text)
-            response = self.client.submit_bet(bet, own_thumbs)  # Use the client instance to submit bet
+            response = requests.post(f'{SERVER_URL}/submit_bet', headers=self.headers,
+                                     json={'bet': bet, 'own_thumbs': own_thumbs}).json()
             if response['status'] != 'OK':
                 messagebox.showerror("Error", response['message'])
         except ValueError:
@@ -163,7 +172,8 @@ class ThumbsUpClientGUI:
             return
         try:
             thumbs = int(thumb_text)
-            response = self.client.submit_thumbs(thumbs)  # Use the client instance to submit thumbs
+            response = requests.post(f'{SERVER_URL}/submit_thumbs', headers=self.headers,
+                                     json={'thumbs': thumbs}).json()
             if response['status'] != 'OK':
                 messagebox.showerror("Error", response['message'])
         except ValueError:
@@ -224,3 +234,4 @@ if __name__ == '__main__':
     root = tk.Tk()
     app = ThumbsUpClientGUI(root)
     root.mainloop()
+
